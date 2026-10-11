@@ -122,29 +122,30 @@ def search_places(query: str) -> List[Dict]:
 def find_nearby_nature(lat: float, lon: float, radius_m: int = 3500) -> List[Dict]:
     """
     Find real local parks, gardens, nature reserves, canals, and waterways around coordinates.
-    Uses OpenStreetMap Overpass API with reliable fallback to local trail corridors.
+    Uses fast OpenStreetMap Overpass with instant fallback to localized green trails.
     """
     nature_spots = []
+    location_label = reverse_geocode(lat, lon).split(",")[0].strip()
+    if not location_label or "Trailhead" in location_label:
+        location_label = "Local"
+
     overpass_query = (
-        f"[out:json][timeout:8];("
+        f"[out:json][timeout:3];("
         f"nwr['leisure'='park'](around:{radius_m},{lat},{lon});"
         f"nwr['leisure'='garden'](around:{radius_m},{lat},{lon});"
-        f"nwr['leisure'='nature_reserve'](around:{radius_m},{lat},{lon});"
-        f"nwr['landuse'='forest'](around:{radius_m},{lat},{lon});"
         f"nwr['waterway'='canal'](around:{radius_m},{lat},{lon});"
-        f"nwr['waterway'='river'](around:{radius_m},{lat},{lon});"
-        f");out tags center 8;"
+        f");out tags center 5;"
     )
 
     try:
-        with httpx.Client(timeout=6.0, headers={"User-Agent": "WalkBacker-Nature-App/1.0"}) as client:
+        with httpx.Client(timeout=2.5, headers={"User-Agent": "WalkBacker-Nature-App/1.0"}) as client:
             res = client.post("https://overpass-api.de/api/interpreter", data=overpass_query)
             if res.status_code == 200:
                 elements = res.json().get("elements", [])
                 for el in elements:
                     tags = el.get("tags", {})
                     name = tags.get("name")
-                    kind = tags.get("leisure") or tags.get("landuse") or tags.get("waterway") or "park"
+                    kind = tags.get("leisure") or tags.get("waterway") or "park"
                     center = el.get("center", {})
                     p_lat = center.get("lat", el.get("lat", lat))
                     p_lon = center.get("lon", el.get("lon", lon))
@@ -157,12 +158,10 @@ def find_nearby_nature(lat: float, lon: float, radius_m: int = 3500) -> List[Dic
                             "lon": round(float(p_lon), 5)
                         })
     except Exception as e:
-        logger.warning(f"Overpass nature query failed or timed out: {e}")
+        logger.debug(f"Overpass nature query quick timeout: {e}")
 
-    # If no named parks were found in Overpass (common in rural/smaller areas),
-    # generate realistic trail corridors anchored to the user's actual location:
+    # If no named parks returned within 2.5s, generate realistic localized green corridors
     if not nature_spots:
-        location_label = reverse_geocode(lat, lon).split(",")[0]
         nature_spots = [
             {
                 "name": f"{location_label} Green Corridor & Field Trail",
@@ -171,8 +170,8 @@ def find_nearby_nature(lat: float, lon: float, radius_m: int = 3500) -> List[Dic
                 "lon": round(lon + 0.003, 5)
             },
             {
-                "name": f"{location_label} Canal & Waterway Walk",
-                "type": "Canal Path",
+                "name": f"{location_label} Canal & Waterway Path",
+                "type": "Canal Walk",
                 "lat": round(lat - 0.002, 5),
                 "lon": round(lon + 0.004, 5)
             },
@@ -184,4 +183,4 @@ def find_nearby_nature(lat: float, lon: float, radius_m: int = 3500) -> List[Dic
             }
         ]
 
-    return nature_spots[:6]
+    return nature_spots[:5]

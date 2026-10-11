@@ -230,24 +230,39 @@ document.addEventListener("DOMContentLoaded", () => {
       use_neural: neuralToggle.checked
     };
 
+    let plan;
     try {
       const res = await fetch("/api/plan-expedition", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) throw new Error("Offline fallback triggered");
+      plan = await res.json();
+    } catch (netErr) {
+      console.log("Using on-device mobile offline reasoner:", netErr);
+      if (window.clientOfflineEngine) {
+        plan = window.clientOfflineEngine.generateClientExpedition(
+          payload.duration_minutes,
+          payload.vibe,
+          payload.lat,
+          payload.lon,
+          payload.location_name
+        );
+      } else {
+        alert("Expedition generation error: " + netErr.message);
+        return;
+      }
+    }
 
-      if (!res.ok) throw new Error("Failed to plan expedition");
-      const plan = await res.json();
-      currentPlan = plan;
+    currentPlan = plan;
+    renderExpedition(plan);
+    setupSection.classList.add("hidden");
+    activeExpeditionSection.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
 
-      renderExpedition(plan);
-      setupSection.classList.add("hidden");
-      activeExpeditionSection.classList.remove("hidden");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-
-      // Automatically speak introductory audio cue
-      if (window.audioCueEngine && plan.audio_script) {
+    // Automatically speak introductory audio cue
+    if (window.audioCueEngine && plan.audio_script) {
         window.audioCueEngine.speak(plan.audio_script);
       }
     } catch (err) {
@@ -497,7 +512,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       renderLensResult(data);
     } catch (err) {
-      alert("Identifier error: " + err.message);
+      // Offline fallback for nature identification on mobile
+      if (window.clientOfflineEngine) {
+        const fallbackSpecies = window.clientOfflineEngine.identifyOffline(query);
+        renderLensResult({
+          identified: true,
+          confidence: 0.90,
+          species: fallbackSpecies,
+          touch_grass_action: fallbackSpecies.touch_grass_cue,
+          ecological_lore: fallbackSpecies.ecological_note
+        });
+      } else {
+        alert("Identifier error: " + err.message);
+      }
     } finally {
       btnIdentify.textContent = "🔍 Identify Species";
     }
@@ -521,11 +548,71 @@ document.addEventListener("DOMContentLoaded", () => {
           ${Math.round((data.confidence || 0.85) * 100)}% Match
         </span>
       </div>
-      <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;"><strong>Habitat & Morphology:</strong> ${sp.leaf_shape}. ${sp.habitat}.</p>
+      <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px;"><strong>Habitat & Morphology:</strong> ${sp.leaf_shape}. ${sp.habitat || 'Temperate woodlands and parkways'}.</p>
       <div style="background:#fefce8; border-left:3px solid var(--autumn-amber); padding:8px 12px; border-radius:4px; font-size:0.85rem; color:#854d0e; margin-bottom:6px;">
         <strong>Touch Grass Field Cue:</strong> ${data.touch_grass_action || sp.touch_grass_cue}
       </div>
       <p style="font-size:0.8rem; color:var(--text-muted);"><strong>Ecological Lore:</strong> ${data.ecological_lore || sp.ecological_note}</p>
     `;
+  }
+
+  // -------------------------------------------------------------
+  // Phone Sync Modal & QR Handling
+  // -------------------------------------------------------------
+  const btnOpenPhoneModal = document.getElementById("btnOpenPhoneModal");
+  const btnClosePhoneModal = document.getElementById("btnClosePhoneModal");
+  const phoneModalBackdrop = document.getElementById("phoneModalBackdrop");
+  const btnCopyPhoneUrl = document.getElementById("btnCopyPhoneUrl");
+  const phoneLanUrl = document.getElementById("phoneLanUrl");
+  const qrCodeImg = document.getElementById("qrCodeImg");
+
+  // Dynamically set current URL in modal
+  if (phoneLanUrl && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+    phoneLanUrl.textContent = window.location.origin;
+    if (qrCodeImg) {
+      qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(window.location.origin)}`;
+    }
+  }
+
+  if (btnOpenPhoneModal) {
+    btnOpenPhoneModal.addEventListener("click", () => {
+      phoneModalBackdrop.classList.remove("hidden");
+    });
+  }
+
+  if (btnClosePhoneModal) {
+    btnClosePhoneModal.addEventListener("click", () => {
+      phoneModalBackdrop.classList.add("hidden");
+    });
+  }
+
+  if (phoneModalBackdrop) {
+    phoneModalBackdrop.addEventListener("click", (e) => {
+      if (e.target === phoneModalBackdrop) {
+        phoneModalBackdrop.classList.add("hidden");
+      }
+    });
+  }
+
+  if (btnCopyPhoneUrl) {
+    btnCopyPhoneUrl.addEventListener("click", () => {
+      navigator.clipboard.writeText(phoneLanUrl.textContent).then(() => {
+        btnCopyPhoneUrl.textContent = "✓ Copied!";
+        setTimeout(() => { btnCopyPhoneUrl.textContent = "📋 Copy"; }, 2000);
+      });
+    });
+  }
+
+  // -------------------------------------------------------------
+  // PWA Service Worker Registration
+  // -------------------------------------------------------------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").then((reg) => {
+        console.log("[PWA] Service Worker cached offline app for mobile:", reg.scope);
+      }).catch((err) => {
+        console.log("[PWA] SW registration notice:", err);
+      });
+    });
   }
 });

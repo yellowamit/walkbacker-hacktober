@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#12301f">
   <title>WalkBacker — Touch Grass Offline AI</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
 </head>
@@ -19,6 +21,10 @@
       </div>
     </div>
     <div class="header-status">
+      <button type="button" class="status-pill phone-pill" id="btnOpenPhoneModal" title="Open on Mobile Phone">
+        <span>📲</span>
+        <span>Open on Phone</span>
+      </button>
       <div class="status-pill ram-pill" id="ramPill" title="Local Memory Footprint">
         <span class="dot green"></span>
         <span id="ramText">RAM: ~85MB (8GB Safe)</span>
@@ -285,7 +291,56 @@
     </div>
   </div>
 
+  <!-- Phone Sync Modal -->
+  <div class="modal-backdrop hidden" id="phoneModalBackdrop">
+    <div class="phone-modal">
+      <div class="phone-modal-header">
+        <h3>📲 Take WalkBacker on Your Phone</h3>
+        <button type="button" class="btn-close-modal" id="btnClosePhoneModal">✕</button>
+      </div>
+      <div class="phone-modal-body">
+        <p class="modal-sub">Step outside with your phone in your pocket. No laptop needed!</p>
+
+        <!-- Method 1: Local Wi-Fi / Hotspot -->
+        <div class="modal-step-card">
+          <span class="step-num">Step 1</span>
+          <div class="step-desc">
+            <strong>Connect Phone to Same Wi-Fi (or Laptop Hotspot)</strong>
+            <p>On your phone's browser, open this address:</p>
+            <div class="phone-url-pill" id="phoneUrlPill">
+              <span id="phoneLanUrl">http://10.26.136.19:8000</span>
+              <button type="button" id="btnCopyPhoneUrl" class="btn-copy">📋 Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Method 2: Offline PWA Installation -->
+        <div class="modal-step-card">
+          <span class="step-num">Step 2</span>
+          <div class="step-desc">
+            <strong>Install as Native App (100% Offline in the Woods)</strong>
+            <p>Once opened on your phone:</p>
+            <ul class="modal-instructions">
+              <li><strong>Chrome / Android:</strong> Tap the 3 dots <strong>⋮</strong> &gt; <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
+              <li><strong>Safari / iPhone:</strong> Tap the Share button <strong>⎙</strong> &gt; <strong>"Add to Home Screen"</strong>.</li>
+            </ul>
+            <div class="pwa-benefit">
+              ✓ Once installed, WalkBacker caches 100% offline. You can walk into the deep woods with <strong>zero mobile data, zero laptop connection, and airplane mode!</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- QR Code container -->
+        <div class="qr-container">
+          <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=http://10.26.136.19:8000" alt="Scan QR Code with Phone Camera" width="160" height="160">
+          <span class="qr-caption">Point your phone camera here to open directly</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
+  <script src="js/client_engine.js"></script>
   <script src="js/audio_cue.js"></script>
   <script src="js/compass.js"></script>
   <script src="js/app.js"></script>
