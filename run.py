@@ -33,7 +33,7 @@ def kill_process_on_port(port: int):
                     pass
 
 
-def find_free_port(preferred_port: int = 8000, host: str = "0.0.0.0") -> int:
+def find_free_port(preferred_port: int = 8000, host: str = "127.0.0.1") -> int:
     """Find preferred port or fallback to the next available port."""
     kill_process_on_port(preferred_port)
 
@@ -50,24 +50,15 @@ def find_free_port(preferred_port: int = 8000, host: str = "0.0.0.0") -> int:
 
 
 if __name__ == "__main__":
-    target_port = find_free_port(PORT, HOST)
-
-    # Get local LAN IP for display
-    local_ip = "127.0.0.1"
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-    except Exception:
-        pass
+    target_port = find_free_port(PORT, "127.0.0.1")
 
     print("==================================================")
     print("🌿 WalkBacker: Touch Grass Open-Source AI")
     print("==================================================")
-    print(f"🚀 Laptop Access : http://localhost:{target_port}")
-    print(f"📲 Phone Access  : http://{local_ip}:{target_port}")
-    print(f"💡 RAM Optimized : ~85MB RSS (Safe for 8GB devices)")
+    print(f"🚀 Open in Browser: http://localhost:{target_port}")
+    print(f"   or directly    : http://127.0.0.1:{target_port}")
+    print(f"💡 RAM Footprint  : ~85MB RSS (Safe for 8GB devices)")
     print("==================================================\n")
 
-    uvicorn.run("backend.main:app", host=HOST, port=target_port, reload=False, log_level="info")
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=target_port, reload=False, log_level="info")
+

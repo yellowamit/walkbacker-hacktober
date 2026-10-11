@@ -17,7 +17,7 @@ DEFAULT_MODEL_ID = "HuggingFaceTB/SmolLM2-135M-Instruct"  # ~270MB safetensors, 
 FALLBACK_MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
 
 # Server Configuration
-HOST = os.getenv("WALKBACKER_HOST", "0.0.0.0")
+HOST = os.getenv("WALKBACKER_HOST", "127.0.0.1")
 PORT = int(os.getenv("WALKBACKER_PORT", "8000"))
 
 # Default Expedition Settings
