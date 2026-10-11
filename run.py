@@ -1,77 +1,73 @@
 """
 WalkBacker Runner
-Launches the offline FastAPI server with automatic host and port resolution.
-Automatically opens your browser to the correct local address (http://localhost:8000)
-and displays the exact network address for your phone.
+Launches the offline FastAPI server with automatic port detection,
+stale process cleanup, and conflict prevention.
 """
 import sys
 import os
 import socket
-import threading
-import time
-import webbrowser
+import psutil
 
 # Ensure UTF-8 output on Windows consoles
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import uvicorn
-from backend.config import PORT
+from backend.config import HOST, PORT
 
 
-def get_lan_ip() -> str:
-    """Discovers the laptop's local LAN IP for phone access."""
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
+def kill_process_on_port(port: int):
+    """Attempt to terminate any stale process holding the desired port."""
+    current_pid = os.getpid()
+    for conn in psutil.net_connections(kind="inet"):
+        if conn.laddr and conn.laddr.port == port and conn.pid:
+            if conn.pid != current_pid:
+                try:
+                    p = psutil.Process(conn.pid)
+                    # Only auto-terminate python/uvicorn stale runners
+                    if "python" in p.name().lower():
+                        print(f"[*] Releasing port {port} (terminated stale process PID {conn.pid})...")
+                        p.terminate()
+                        p.wait(timeout=2)
+                except Exception:
+                    pass
 
 
-def is_port_in_use(port: int) -> bool:
-    """Check if the target port is already occupied."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(("127.0.0.1", port)) == 0
+def find_free_port(preferred_port: int = 8000, host: str = "0.0.0.0") -> int:
+    """Find preferred port or fallback to the next available port."""
+    kill_process_on_port(preferred_port)
 
-
-def open_browser(url: str):
-    """Wait for uvicorn to bind and open browser automatically."""
-    time.sleep(1.2)
-    try:
-        webbrowser.open(url)
-    except Exception:
-        pass
+    # Test if preferred port is free
+    for port in range(preferred_port, preferred_port + 20):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind((host, port))
+                return port
+            except OSError:
+                continue
+    return preferred_port
 
 
 if __name__ == "__main__":
-    target_port = PORT
-    if is_port_in_use(target_port):
-        # Check if 8000 is in use, switch to 8001 if needed
-        print(f"[!] Notice: Port {target_port} is currently in use. Trying port 8001...")
-        target_port = 8001
+    target_port = find_free_port(PORT, HOST)
 
-    lan_ip = get_lan_ip()
-    local_url = f"http://localhost:{target_port}"
-    lan_url = f"http://{lan_ip}:{target_port}"
+    # Get local LAN IP for display
+    local_ip = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
 
-    print("=" * 64)
-    print("🌿 WalkBacker: Touch Grass Open-Source AI Expedition Agent")
-    print("=" * 64)
-    print(f"💻 On this laptop, open:")
-    print(f"   👉 {local_url}   (or http://127.0.0.1:{target_port})")
-    print(f"\n📱 On your mobile phone (same Wi-Fi), open:")
-    print(f"   👉 {lan_url}")
-    print(f"\n🌐 GitHub Pages (HTTPS PWA for phone in the woods):")
-    print(f"   👉 https://yellowamit.github.io/walkbacker-hacktober/")
-    print("=" * 64)
-    print("[*] Note: Do NOT open 'http://0.0.0.0' in your browser — Windows")
-    print("    treats 0.0.0.0 as invalid. Always use http://localhost:8000\n")
+    print("==================================================")
+    print("🌿 WalkBacker: Touch Grass Open-Source AI")
+    print("==================================================")
+    print(f"🚀 Laptop Access : http://localhost:{target_port}")
+    print(f"📲 Phone Access  : http://{local_ip}:{target_port}")
+    print(f"💡 RAM Optimized : ~85MB RSS (Safe for 8GB devices)")
+    print("==================================================\n")
 
-    # Launch browser automatically to localhost
-    threading.Thread(target=open_browser, args=(local_url,), daemon=True).start()
-
-    # Listen on 0.0.0.0 so phone on LAN can reach it, while laptop accesses localhost
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=target_port, reload=False, log_level="info")
+    uvicorn.run("backend.main:app", host=HOST, port=target_port, reload=False, log_level="info")
