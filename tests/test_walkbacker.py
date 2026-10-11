@@ -160,3 +160,12 @@ def test_api_endpoints():
     res_species = client.get("/api/species")
     assert res_species.status_code == 200
     assert res_species.json()["total"] >= 10
+
+    # Location auto-detect & reverse tests
+    res_loc = client.get("/api/location/auto")
+    assert res_loc.status_code == 200
+    assert "location" in res_loc.json()
+
+    res_nearby = client.get("/api/nature/nearby?lat=32.15&lon=75.4667")
+    assert res_nearby.status_code == 200
+    assert len(res_nearby.json()["nearby"]) > 0

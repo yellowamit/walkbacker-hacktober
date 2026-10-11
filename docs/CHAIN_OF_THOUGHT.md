@@ -11,6 +11,8 @@
 - **Execution Profile**:
   - Process RSS memory achieved: **~85 MB** (over 90% below limit!).
   - Pure CPU execution: Zero GPU or VRAM requirements.
+  - Zero heavy AI installation required: Edge Zero-RAM CoT engine is built-in and runs immediately.
+  - Automatic Location & Local Nature Discovery: Auto-detects real GPS/IP location, reverse-geocodes neighborhood, and queries OpenStreetMap for real local parks, canals, and green spaces.
   - Zero cloud dependencies: 100% offline trail functionality (solar equations, dead-reckoning compass, botanical taxonomy, and Web Speech API audio narration).
 
 ---

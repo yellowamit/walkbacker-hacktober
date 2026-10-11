@@ -920,3 +920,61 @@ input[type="checkbox"] {
     display: none;
   }
 }
+
+/* Nearby Nature Discovery Box */
+.nearby-nature-box {
+  margin-top: 10px;
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.nearby-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--forest-green);
+  margin-bottom: 8px;
+}
+
+.nature-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-loading {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.nature-chip {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  color: var(--forest-dark);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nature-chip:hover {
+  background: var(--forest-dark);
+  color: #ffffff;
+  border-color: var(--forest-dark);
+}
+
+.nature-chip.active {
+  background: var(--forest-green);
+  color: #ffffff;
+  border-color: var(--forest-green);
+}

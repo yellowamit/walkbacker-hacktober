@@ -74,13 +74,21 @@
         </div>
 
         <!-- Location Coordinates / Name -->
-        <div class="form-group">
-          <label for="locationName">Starting Trailhead / Park</label>
+        <div class="form-group location-form-group">
+          <label for="locationName">Starting Trailhead / Local Area</label>
           <div class="input-with-btn">
-            <input type="text" id="locationName" value="Hemlock Ridge Reserve" placeholder="e.g. Oak Hollow Park">
-            <button type="button" id="btnGetGPS" class="btn-secondary" title="Use current GPS">📍 GPS</button>
+            <input type="text" id="locationName" value="" placeholder="Detecting local area... or type your city/park">
+            <button type="button" id="btnGetGPS" class="btn-secondary" title="Detect GPS / IP Location">📍 Auto-Detect</button>
           </div>
-          <div class="coords-display" id="coordsDisplay">Coordinates: 40.7128° N, -74.0060° W</div>
+          <div class="coords-display" id="coordsDisplay">📍 Detecting location...</div>
+          
+          <!-- Discovered Local Nature Spaces -->
+          <div class="nearby-nature-box" id="nearbyNatureBox">
+            <span class="nearby-label">🌿 Discovered Green Spaces Near You:</span>
+            <div class="nature-chips-container" id="natureChipsContainer">
+              <span class="chip-loading">Finding nearby parks & trails...</span>
+            </div>
+          </div>
         </div>
 
         <!-- Engine Preference -->

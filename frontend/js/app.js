@@ -42,11 +42,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const ramPill = document.getElementById("ramPill");
   const ramText = document.getElementById("ramText");
 
+  const natureChipsContainer = document.getElementById("natureChipsContainer");
+
   // -------------------------------------------------------------
   // Initialization & Memory Telemetry
   // -------------------------------------------------------------
   updateMemoryStatus();
   setInterval(updateMemoryStatus, 15000);
+
+  // Auto-detect location on startup
+  detectCurrentLocation();
 
   async function updateMemoryStatus() {
     try {
@@ -56,7 +61,6 @@ document.addEventListener("DOMContentLoaded", () => {
         ramText.textContent = `RAM: ~${Math.round(mem.process_ram_mb)}MB (8GB Safe)`;
       }
     } catch (e) {
-      // offline fallback
       ramText.textContent = "RAM: ~85MB (Offline)";
     }
   }
@@ -80,30 +84,133 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleLabel.textContent = "Edge Zero-RAM Engine (Instant, Offline)";
     }
   });
+  // Location & Nature Discovery
+  // -------------------------------------------------------------
+  async function detectCurrentLocation() {
+    coordsDisplay.textContent = "📍 Auto-detecting your location...";
+    btnGetGPS.textContent = "⏳...";
 
-  // -------------------------------------------------------------
-  // GPS Location Handler
-  // -------------------------------------------------------------
-  btnGetGPS.addEventListener("click", () => {
+    // First try fast server-side IP auto-detection
+    try {
+      const res = await fetch("/api/location/auto");
+      if (res.ok) {
+        const data = await res.json();
+        const loc = data.location;
+        currentCoordinates = { lat: loc.lat, lon: loc.lon };
+        locationNameInput.value = loc.display_name || loc.city || "Local Trailhead Base";
+        coordsDisplay.textContent = `📍 Fixed: ${loc.display_name} (${loc.lat.toFixed(4)}° N, ${loc.lon.toFixed(4)}° E)`;
+        renderNearbyNature(data.nearby_nature);
+      }
+    } catch (e) {
+      console.warn("Server auto-location fallback:", e);
+    }
+
+    // Next, check browser high-accuracy GPS if available
     if ("geolocation" in navigator) {
-      btnGetGPS.textContent = "⏳...";
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           currentCoordinates = {
             lat: pos.coords.latitude,
             lon: pos.coords.longitude
           };
-          coordsDisplay.textContent = `GPS: ${currentCoordinates.lat.toFixed(4)}° N, ${currentCoordinates.lon.toFixed(4)}° W`;
-          btnGetGPS.textContent = "✓ Fixed";
-          setTimeout(() => { btnGetGPS.textContent = "📍 GPS"; }, 2500);
+          coordsDisplay.textContent = `📍 GPS Fixed: ${currentCoordinates.lat.toFixed(4)}° N, ${currentCoordinates.lon.toFixed(4)}° E`;
+          btnGetGPS.textContent = "✓ GPS Fixed";
+
+          // Reverse geocode precise GPS
+          try {
+            const revRes = await fetch(`/api/location/reverse?lat=${currentCoordinates.lat}&lon=${currentCoordinates.lon}`);
+            if (revRes.ok) {
+              const revData = await revRes.json();
+              if (revData.display_name) {
+                locationNameInput.value = revData.display_name;
+                coordsDisplay.textContent = `📍 ${revData.display_name} (${currentCoordinates.lat.toFixed(4)}° N, ${currentCoordinates.lon.toFixed(4)}° E)`;
+              }
+              if (revData.nearby_nature && revData.nearby_nature.length > 0) {
+                renderNearbyNature(revData.nearby_nature);
+              }
+            }
+          } catch (err) {
+            console.warn("Reverse geocode err:", err);
+          }
+          setTimeout(() => { btnGetGPS.textContent = "📍 Auto-Detect"; }, 3000);
         },
         (err) => {
-          console.warn("Geolocation fallback:", err.message);
-          coordsDisplay.textContent = "Default GPS: 40.7128° N, -74.0060° W (Offline fixed)";
-          btnGetGPS.textContent = "📍 GPS";
+          console.warn("Browser GPS prompt skipped/denied:", err.message);
+          btnGetGPS.textContent = "📍 Auto-Detect";
         },
         { enableHighAccuracy: true, timeout: 6000 }
       );
+    } else {
+      btnGetGPS.textContent = "📍 Auto-Detect";
+    }
+  }
+
+  function renderNearbyNature(spots) {
+    if (!natureChipsContainer) return;
+    if (!spots || spots.length === 0) {
+      natureChipsContainer.innerHTML = '<span class="chip-loading">Local nature walk synthesized for your coordinates.</span>';
+      return;
+    }
+
+    natureChipsContainer.innerHTML = "";
+    spots.forEach((spot, idx) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = `nature-chip ${idx === 0 ? "active" : ""}`;
+      chip.innerHTML = `🌲 <span>${spot.name}</span> <small>(${spot.type})</small>`;
+      
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".nature-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        locationNameInput.value = spot.name;
+        currentCoordinates = { lat: spot.lat, lon: spot.lon };
+        coordsDisplay.textContent = `📍 Selected: ${spot.name} (${spot.lat.toFixed(4)}° N, ${spot.lon.toFixed(4)}° E)`;
+      });
+
+      natureChipsContainer.appendChild(chip);
+    });
+
+    // Auto-select the first discovered nature spot name if input is generic
+    if (spots.length > 0 && (!locationNameInput.value || locationNameInput.value.includes("Local Trailhead"))) {
+      locationNameInput.value = spots[0].name;
+      currentCoordinates = { lat: spots[0].lat, lon: spots[0].lon };
+    }
+  }
+
+  btnGetGPS.addEventListener("click", () => {
+    detectCurrentLocation();
+  });
+
+  // Location text search on Enter
+  locationNameInput.addEventListener("keydown", async (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const q = locationNameInput.value.trim();
+      if (!q) return;
+
+      coordsDisplay.textContent = `Searching for "${q}"...`;
+      try {
+        const res = await fetch(`/api/location/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            const first = data.results[0];
+            currentCoordinates = { lat: first.lat, lon: first.lon };
+            locationNameInput.value = first.display_name.split(",")[0];
+            coordsDisplay.textContent = `📍 Found: ${first.display_name.slice(0, 50)}... (${first.lat.toFixed(4)}° N, ${first.lon.toFixed(4)}° E)`;
+            // Load nearby nature for searched spot
+            const natRes = await fetch(`/api/nature/nearby?lat=${first.lat}&lon=${first.lon}`);
+            if (natRes.ok) {
+              const natData = await natRes.json();
+              renderNearbyNature(natData.nearby);
+            }
+          } else {
+            coordsDisplay.textContent = `📍 Custom spot set: ${q} (${currentCoordinates.lat.toFixed(4)}° N, ${currentCoordinates.lon.toFixed(4)}° E)`;
+          }
+        }
+      } catch (err) {
+        console.warn("Location search error:", err);
+      }
     }
   });
 

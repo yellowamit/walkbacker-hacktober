@@ -26,6 +26,12 @@ from .navigation.gpx_exporter import (
     export_breadcrumbs_to_gpx,
     export_breadcrumbs_to_geojson
 )
+from .navigation.geocoding import (
+    get_auto_location,
+    reverse_geocode,
+    find_nearby_nature,
+    search_places
+)
 
 app = FastAPI(
     title="WalkBacker - Touch Grass Open-Source AI",
@@ -105,6 +111,44 @@ def health_check():
 def memory_status():
     """Live physical RAM telemetry."""
     return get_system_memory_status()
+
+
+@app.get("/api/location/auto")
+def auto_detect_location():
+    """Auto-detect current location via IP and fetch real nearby green spaces."""
+    loc = get_auto_location()
+    nearby = find_nearby_nature(loc["lat"], loc["lon"])
+    return {
+        "location": loc,
+        "nearby_nature": nearby
+    }
+
+
+@app.get("/api/location/reverse")
+def get_reverse_geocode(lat: float, lon: float):
+    """Resolve coordinates to human-readable place name."""
+    name = reverse_geocode(lat, lon)
+    nearby = find_nearby_nature(lat, lon)
+    return {
+        "display_name": name,
+        "lat": lat,
+        "lon": lon,
+        "nearby_nature": nearby
+    }
+
+
+@app.get("/api/location/search")
+def search_location_endpoint(q: str):
+    """Search for town, park, or trail by text query."""
+    places = search_places(q)
+    return {"results": places}
+
+
+@app.get("/api/nature/nearby")
+def get_nearby_nature(lat: float, lon: float):
+    """Get real parks and nature trails near specific coordinates."""
+    spots = find_nearby_nature(lat, lon)
+    return {"nearby": spots, "lat": lat, "lon": lon}
 
 
 @app.post("/api/plan-expedition")
